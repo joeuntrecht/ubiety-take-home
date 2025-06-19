@@ -82,6 +82,40 @@ def submit_status():
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+    
+@app.route('/status/<device_id>', methods=['GET'])
+def get_device_status(device_id):
+    # Get the last known status for a specific device
+    try:
+        conn = sqlite3.connect(DATABASE)
+        conn.row_factory = sqlite3.Row  # This enables column access by name
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT device_id, timestamp, battery_level, rssi, online 
+            FROM device_status 
+            WHERE device_id = ?
+        ''', (device_id,))
+        
+        row = cursor.fetchone()
+        conn.close()
+        
+        if row is None:
+            return jsonify({'error': 'Device not found'}), 404
+        
+        # Convert row to dictionary
+        device_status = {
+            'device_id': row['device_id'],
+            'timestamp': row['timestamp'],
+            'battery_level': row['battery_level'],
+            'rssi': row['rssi'],
+            'online': bool(row['online'])
+        }
+        
+        return jsonify(device_status), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/health', methods=['GET'])
 def health_check():

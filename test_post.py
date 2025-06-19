@@ -104,6 +104,7 @@ def test_update_existing():
 
 if __name__ == '__main__':
     print("Testing POST /status endpoint")
+    print("=" * 50)
     
     # Check if server is running
     if not test_health():
@@ -115,6 +116,7 @@ if __name__ == '__main__':
     test_missing_field()
     test_invalid_battery()
     test_update_existing()
-    
+
+    print("\n" + "=" * 50)
     print("POST endpoint testing completed!")
     print("\nNext step: Check if device_status.db file was created in your directory")
