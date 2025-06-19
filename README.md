@@ -18,10 +18,24 @@ A Flask-based REST API for managing IoT device status data including battery lev
 ## Quick Start
 
 ### Prerequisites
-- Python 3.7+
-- pip
+- Python 3.7+ OR Docker and Docker Compose
+- pip (if running without Docker)
 
 ### Installation
+
+#### Option 1: Docker (Recommended)
+```bash
+# Clone the repository
+git clone <repository-url>
+cd ubiety-take-home
+
+# Start with Docker Compose
+docker-compose up
+```
+
+The API will be available at `http://localhost:8000`
+
+#### Option 2: Local Python
 ```bash
 # Clone the repository
 git clone <repository-url>
@@ -180,11 +194,69 @@ Health check endpoint.
 }
 ```
 
+## Docker Development
+
+### Running with Docker
+
+**Start the application:**
+```bash
+docker compose up
+```
+
+**Start in background:**
+```bash
+docker compose up -d
+```
+
+**View logs:**
+```bash
+docker compose logs -f
+```
+
+**Stop the application:**
+```bash
+docker compose down
+```
+
+**Rebuild after code changes:**
+```bash
+# Force rebuild to pick up code changes
+docker compose build --no-cache
+docker compose up
+```
+
+### Running Tests with Docker
+
+```bash
+# Install test dependencies in container
+docker compose exec api pip install pytest
+
+# Run unit tests
+docker compose exec api pytest tests/test_validation.py tests/test_formatting.py -v
+
+# Run integration tests
+docker compose exec api pytest tests/test_integration.py -v
+```
+
 ## Testing
 
 This project includes comprehensive unit and integration tests using pytest.
 
 ### Running Tests
+
+#### With Docker
+```bash
+# Install test dependencies in container
+docker compose exec api pip install pytest
+
+# Run unit tests
+docker compose exec api pytest tests/test_validation.py tests/test_formatting.py -v
+
+# Run integration tests
+docker compose exec api pytest tests/test_integration.py -v
+```
+
+#### Without Docker
 
 **Install test dependencies:**
 ```bash
@@ -266,11 +338,68 @@ The workflow could be configured to run on pushes to `main` and `develop` branch
 
 ## Development
 
+### Docker Development
+
+**Start the application:**
+```bash
+docker-compose up
+```
+
+**Start in background:**
+```bash
+docker-compose up -d
+```
+
+**View logs:**
+```bash
+docker-compose logs -f
+```
+
+**Stop the application:**
+```bash
+docker-compose down
+```
+
+**Rebuild after code changes:**
+```bash
+docker-compose up --build
+```
+
+### Local Development
+
+For local development without Docker, ensure you have Python 3.7+ installed and follow the Local Python installation steps above.
+
+### Running Tests
+
+#### With Docker
+```bash
+# Install test dependencies in container
+docker-compose exec api pip install pytest
+
+# Run unit tests
+docker-compose exec api pytest tests/test_validation.py tests/test_formatting.py -v
+
+# Run integration tests
+docker-compose exec api pytest tests/test_integration.py -v
+```
+
+#### Without Docker
+```bash
+# Install test dependencies
+pip install pytest
+
+# Run all tests
+pytest tests/ -v
+```
+
 ### Project Structure
 ```
 ubiety-take-home/
 ├── app.py                    # Main Flask application
 ├── requirements.txt          # Python dependencies
+├── Dockerfile               # Docker container configuration
+├── docker-compose.yml       # Docker Compose setup
+├── .dockerignore            # Docker ignore file
 ├── device_status.db         # SQLite database (created automatically)
 ├── test_get_device.py       # Manual test script for GET /status/{device_id}
 ├── test_post.py             # Manual test script for POST /status

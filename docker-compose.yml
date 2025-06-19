@@ -1,0 +1,12 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount database file to persist data
+      - ./device_status.db:/app/device_status.db
+    environment:
+      # Set API keys for development
+      - API_KEYS=dev-key-123,test-key-456
+    restart: unless-stopped
