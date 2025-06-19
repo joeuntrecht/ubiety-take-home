@@ -116,6 +116,38 @@ def get_device_status(device_id):
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+    
+@app.route('/status/summary', methods=['GET'])
+def get_status_summary():
+    # Get summary of all devices with their most recent status
+    try:
+        conn = sqlite3.connect(DATABASE)
+        conn.row_factory = sqlite3.Row  # This enables column access by name
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT device_id, battery_level, online, timestamp 
+            FROM device_status 
+            ORDER BY device_id
+        ''')
+        
+        rows = cursor.fetchall()
+        conn.close()
+        
+        # Build summary list
+        summary = []
+        for row in rows:
+            summary.append({
+                'device_id': row['device_id'],
+                'battery_level': row['battery_level'],
+                'online': bool(row['online']),
+                'last_update': row['timestamp']
+            })
+        
+        return jsonify({'devices': summary}), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/health', methods=['GET'])
 def health_check():
