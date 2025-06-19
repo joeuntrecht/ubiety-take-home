@@ -7,6 +7,7 @@ import requests
 import json
 
 BASE_URL = 'http://localhost:8000'
+API_KEY = 'dev-key-123'  # Default API key
 
 def test_health():
     # Test that the server is running
@@ -31,7 +32,8 @@ def test_valid_post():
         "online": True
     }
     
-    response = requests.post(f'{BASE_URL}/status', json=test_data)
+    headers = {'X-API-Key': API_KEY}
+    response = requests.post(f'{BASE_URL}/status', json=test_data, headers=headers)
     print(f"Status Code: {response.status_code}")
     print(f"Response: {response.json()}")
     
@@ -51,7 +53,8 @@ def test_missing_field():
         # Missing rssi and online
     }
     
-    response = requests.post(f'{BASE_URL}/status', json=test_data)
+    headers = {'X-API-Key': API_KEY}
+    response = requests.post(f'{BASE_URL}/status', json=test_data, headers=headers)
     print(f"Status Code: {response.status_code}")
     print(f"Response: {response.json()}")
     
@@ -72,7 +75,8 @@ def test_invalid_battery():
         "online": True
     }
     
-    response = requests.post(f'{BASE_URL}/status', json=test_data)
+    headers = {'X-API-Key': API_KEY}
+    response = requests.post(f'{BASE_URL}/status', json=test_data, headers=headers)
     print(f"Status Code: {response.status_code}")
     print(f"Response: {response.json()}")
     
@@ -93,7 +97,8 @@ def test_update_existing():
         "online": False  # Different status
     }
     
-    response = requests.post(f'{BASE_URL}/status', json=test_data)
+    headers = {'X-API-Key': API_KEY}
+    response = requests.post(f'{BASE_URL}/status', json=test_data, headers=headers)
     print(f"Status Code: {response.status_code}")
     print(f"Response: {response.json()}")
     
@@ -101,6 +106,27 @@ def test_update_existing():
         print("Device update successful")
     else:
         print("Device update failed")
+
+def test_no_api_key():
+    # Test POST /status without API key
+    print("\n5. Testing POST /status without API key...")
+    
+    test_data = {
+        "device_id": "sensor-abc-123",
+        "timestamp": "2025-06-09T14:00:00Z",
+        "battery_level": 76,
+        "rssi": -60,
+        "online": True
+    }
+    
+    response = requests.post(f'{BASE_URL}/status', json=test_data)
+    print(f"Status Code: {response.status_code}")
+    print(f"Response: {response.json()}")
+    
+    if response.status_code == 401:
+        print("Authentication working")
+    else:
+        print("Authentication failed")
 
 if __name__ == '__main__':
     print("Testing POST /status endpoint")
@@ -116,6 +142,7 @@ if __name__ == '__main__':
     test_missing_field()
     test_invalid_battery()
     test_update_existing()
+    test_no_api_key()
 
     print("\n" + "=" * 50)
     print("POST endpoint testing completed!")

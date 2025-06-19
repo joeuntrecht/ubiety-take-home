@@ -3,10 +3,11 @@
 import pytest
 import sys
 import os
+from unittest.mock import Mock
 
 # Add parent directory to path so we can import from app.py
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from app import validate_device_data
+from app import validate_device_data, require_api_key, VALID_API_KEYS
 
 
 class TestValidateDeviceData:
@@ -221,3 +222,13 @@ class TestValidateDeviceData:
         data["timestamp"] = "2025-06-19T14:00:00+00:00"
         is_valid, error_message = validate_device_data(data)
         assert is_valid == True
+
+
+class TestAPIKeyAuthentication:
+    # Test the API key authentication configuration
+    
+    def test_valid_api_keys_configuration(self):
+        # Test that valid API keys are configured
+        assert isinstance(VALID_API_KEYS, list)
+        assert len(VALID_API_KEYS) > 0
+        assert 'dev-key-123' in VALID_API_KEYS  # Default key should be present

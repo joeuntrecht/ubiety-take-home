@@ -18,47 +18,25 @@ class TestAPIIntegration:
     # Integration tests for the complete API workflow
     
     BASE_URL = 'http://localhost:8000'
-    TEST_DATABASE = 'test_device_status.db'
+    API_KEY = 'dev-key-123'  # Default API key
     
-    @classmethod
-    def setup_class(cls):
-        # Setup test database before running tests
-        # Clean up any existing test database
-        if os.path.exists(cls.TEST_DATABASE):
-            os.remove(cls.TEST_DATABASE)
-        
-        # Create test database
-        conn = sqlite3.connect(cls.TEST_DATABASE)
-        cursor = conn.cursor()
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS device_status (
-                device_id TEXT PRIMARY KEY,
-                timestamp TEXT NOT NULL,
-                battery_level INTEGER NOT NULL,
-                rssi INTEGER NOT NULL,
-                online BOOLEAN NOT NULL,
-                created_at TEXT NOT NULL
-            )
-        ''')
-        conn.commit()
-        conn.close()
-        
-        # Note: These tests assume the Flask server is running
-        # In a real CI/CD environment, you'd start the server programmatically
-    
-    @classmethod
-    def teardown_class(cls):
-        # Clean up test database after tests
-        if os.path.exists(cls.TEST_DATABASE):
-            os.remove(cls.TEST_DATABASE)
+    @property
+    def headers(self):
+        # Headers with API key for authenticated requests
+        return {'X-API-Key': self.API_KEY}
     
     def setup_method(self):
-        # Clean test database before each test
-        conn = sqlite3.connect(self.TEST_DATABASE)
+        # Clean main database before each test to ensure isolation
+        # Clear the main database that Flask is using
+        conn = sqlite3.connect('device_status.db')
         cursor = conn.cursor()
         cursor.execute('DELETE FROM device_status')
         conn.commit()
         conn.close()
+        
+        # Wait a moment to ensure database operation completes
+        import time
+        time.sleep(0.1)
     
     def test_server_health(self):
         # Test that the server is running and healthy
@@ -79,7 +57,7 @@ class TestAPIIntegration:
             "online": True
         }
         
-        response = requests.post(f'{self.BASE_URL}/status', json=device_data)
+        response = requests.post(f'{self.BASE_URL}/status', json=device_data, headers=self.headers)
         assert response.status_code == 200
         
         data = response.json()
@@ -96,11 +74,11 @@ class TestAPIIntegration:
             "online": False
         }
         
-        post_response = requests.post(f'{self.BASE_URL}/status', json=device_data)
+        post_response = requests.post(f'{self.BASE_URL}/status', json=device_data, headers=self.headers)
         assert post_response.status_code == 200
         
         # Step 2: GET the same device data back
-        get_response = requests.get(f'{self.BASE_URL}/status/integration-test-002')
+        get_response = requests.get(f'{self.BASE_URL}/status/integration-test-002', headers=self.headers)
         assert get_response.status_code == 200
         
         retrieved_data = get_response.json()
@@ -123,7 +101,7 @@ class TestAPIIntegration:
             "online": True
         }
         
-        response1 = requests.post(f'{self.BASE_URL}/status', json=initial_data)
+        response1 = requests.post(f'{self.BASE_URL}/status', json=initial_data, headers=self.headers)
         assert response1.status_code == 200
         
         # Step 2: POST updated data for same device
@@ -135,11 +113,11 @@ class TestAPIIntegration:
             "online": True
         }
         
-        response2 = requests.post(f'{self.BASE_URL}/status', json=updated_data)
+        response2 = requests.post(f'{self.BASE_URL}/status', json=updated_data, headers=self.headers)
         assert response2.status_code == 200
         
         # Step 3: GET device data - should have updated values
-        get_response = requests.get(f'{self.BASE_URL}/status/{device_id}')
+        get_response = requests.get(f'{self.BASE_URL}/status/{device_id}', headers=self.headers)
         assert get_response.status_code == 200
         
         retrieved_data = get_response.json()
@@ -149,7 +127,7 @@ class TestAPIIntegration:
     
     def test_get_nonexistent_device(self):
         # Test GET for device that doesn't exist
-        response = requests.get(f'{self.BASE_URL}/status/nonexistent-device')
+        response = requests.get(f'{self.BASE_URL}/status/nonexistent-device', headers=self.headers)
         assert response.status_code == 404
         
         data = response.json()
@@ -165,7 +143,7 @@ class TestAPIIntegration:
             # Missing rssi and online
         }
         
-        response = requests.post(f'{self.BASE_URL}/status', json=invalid_data)
+        response = requests.post(f'{self.BASE_URL}/status', json=invalid_data, headers=self.headers)
         assert response.status_code == 400
         assert 'Missing required field' in response.json()['error']
         
@@ -178,9 +156,61 @@ class TestAPIIntegration:
             "online": True
         }
         
-        response = requests.post(f'{self.BASE_URL}/status', json=invalid_data)
+        response = requests.post(f'{self.BASE_URL}/status', json=invalid_data, headers=self.headers)
         assert response.status_code == 400
         assert 'battery_level must be an integer between 0 and 100' in response.json()['error']
+    
+    def test_authentication_missing_api_key(self):
+        # Test requests without API key should fail
+        device_data = {
+            "device_id": "auth-test-001",
+            "timestamp": "2025-06-19T14:00:00Z",
+            "battery_level": 85,
+            "rssi": -55,
+            "online": True
+        }
+        
+        # POST without API key
+        response = requests.post(f'{self.BASE_URL}/status', json=device_data)
+        assert response.status_code == 401
+        assert 'Missing API key header' in response.json()['error']
+        
+        # GET without API key
+        response = requests.get(f'{self.BASE_URL}/status/some-device')
+        assert response.status_code == 401
+        assert 'Missing API key header' in response.json()['error']
+        
+        # Summary without API key
+        response = requests.get(f'{self.BASE_URL}/status/summary')
+        assert response.status_code == 401
+        assert 'Missing API key header' in response.json()['error']
+    
+    def test_authentication_invalid_api_key(self):
+        # Test requests with invalid API key should fail
+        invalid_headers = {'X-API-Key': 'invalid-key-999'}
+        
+        device_data = {
+            "device_id": "auth-test-002",
+            "timestamp": "2025-06-19T14:00:00Z",
+            "battery_level": 85,
+            "rssi": -55,
+            "online": True
+        }
+        
+        # POST with invalid API key
+        response = requests.post(f'{self.BASE_URL}/status', json=device_data, headers=invalid_headers)
+        assert response.status_code == 401
+        assert 'Invalid API key' in response.json()['error']
+        
+        # GET with invalid API key
+        response = requests.get(f'{self.BASE_URL}/status/some-device', headers=invalid_headers)
+        assert response.status_code == 401
+        assert 'Invalid API key' in response.json()['error']
+        
+        # Summary with invalid API key
+        response = requests.get(f'{self.BASE_URL}/status/summary', headers=invalid_headers)
+        assert response.status_code == 401
+        assert 'Invalid API key' in response.json()['error']
     
     def test_summary_structure_with_known_data(self):
         # Test GET /status/summary returns proper structure (regardless of existing data)
@@ -193,11 +223,11 @@ class TestAPIIntegration:
             "online": True
         }
         
-        post_response = requests.post(f'{self.BASE_URL}/status', json=test_device)
+        post_response = requests.post(f'{self.BASE_URL}/status', json=test_device, headers=self.headers)
         assert post_response.status_code == 200
         
         # GET summary
-        response = requests.get(f'{self.BASE_URL}/status/summary')
+        response = requests.get(f'{self.BASE_URL}/status/summary', headers=self.headers)
         assert response.status_code == 200
         
         data = response.json()
@@ -251,11 +281,11 @@ class TestAPIIntegration:
         
         # POST all devices
         for device in devices:
-            response = requests.post(f'{self.BASE_URL}/status', json=device)
+            response = requests.post(f'{self.BASE_URL}/status', json=device, headers=self.headers)
             assert response.status_code == 200
         
         # GET summary
-        response = requests.get(f'{self.BASE_URL}/status/summary')
+        response = requests.get(f'{self.BASE_URL}/status/summary', headers=self.headers)
         assert response.status_code == 200
         
         data = response.json()
@@ -306,19 +336,19 @@ class TestAPIIntegration:
         ]
         
         for device in devices:
-            response = requests.post(f'{self.BASE_URL}/status', json=device)
+            response = requests.post(f'{self.BASE_URL}/status', json=device, headers=self.headers)
             assert response.status_code == 200
         
         # 2. GET individual devices
         for device in devices:
-            response = requests.get(f'{self.BASE_URL}/status/{device["device_id"]}')
+            response = requests.get(f'{self.BASE_URL}/status/{device["device_id"]}', headers=self.headers)
             assert response.status_code == 200
             data = response.json()
             assert data['device_id'] == device['device_id']
             assert data['battery_level'] == device['battery_level']
         
         # 3. GET summary and check our devices are there
-        response = requests.get(f'{self.BASE_URL}/status/summary')
+        response = requests.get(f'{self.BASE_URL}/status/summary', headers=self.headers)
         assert response.status_code == 200
         data = response.json()
         
@@ -335,11 +365,11 @@ class TestAPIIntegration:
             "online": True
         }
         
-        response = requests.post(f'{self.BASE_URL}/status', json=updated_device)
+        response = requests.post(f'{self.BASE_URL}/status', json=updated_device, headers=self.headers)
         assert response.status_code == 200
         
         # 5. Verify update in summary
-        response = requests.get(f'{self.BASE_URL}/status/summary')
+        response = requests.get(f'{self.BASE_URL}/status/summary', headers=self.headers)
         assert response.status_code == 200
         data = response.json()
         

@@ -3,10 +3,10 @@
 # Test script for GET /status/{device_id} endpoint
 # Run this after starting the Flask app and having some data from POST tests
 
-
 import requests
 
 BASE_URL = 'http://localhost:8000'
+API_KEY = 'dev-key-123'  # Default API key
 
 def test_health():
     # Test that the server is running
@@ -31,7 +31,8 @@ def add_test_device():
         "online": True
     }
     
-    response = requests.post(f'{BASE_URL}/status', json=test_data)
+    headers = {'X-API-Key': API_KEY}
+    response = requests.post(f'{BASE_URL}/status', json=test_data, headers=headers)
     print(f"POST Status Code: {response.status_code}")
     print(f"POST Response: {response.json()}")
     
@@ -46,7 +47,8 @@ def test_get_existing_device():
     # Test GET /status/{device_id} for existing device
     print("\n2. Testing GET /status/sensor-get-test-123")
     
-    response = requests.get(f'{BASE_URL}/status/sensor-get-test-123')
+    headers = {'X-API-Key': API_KEY}
+    response = requests.get(f'{BASE_URL}/status/sensor-get-test-123', headers=headers)
     print(f"Status Code: {response.status_code}")
     print(f"Response: {response.json()}")
     
@@ -78,7 +80,8 @@ def test_get_nonexistent_device():
     # Test GET /status/{device_id} for device that doesn't exist
     print("\n3. Testing GET /status/nonexistent-device")
     
-    response = requests.get(f'{BASE_URL}/status/nonexistent-device')
+    headers = {'X-API-Key': API_KEY}
+    response = requests.get(f'{BASE_URL}/status/nonexistent-device', headers=headers)
     print(f"Status Code: {response.status_code}")
     print(f"Response: {response.json()}")
     
@@ -89,11 +92,27 @@ def test_get_nonexistent_device():
         print("GET nonexistent device handling failed")
         return False
 
+def test_get_no_api_key():
+    # Test GET /status/{device_id} without API key
+    print("\n4. Testing GET /status/sensor-get-test-123 without API key")
+    
+    response = requests.get(f'{BASE_URL}/status/sensor-get-test-123')
+    print(f"Status Code: {response.status_code}")
+    print(f"Response: {response.json()}")
+    
+    if response.status_code == 401:
+        print("Authentication working correctly")
+        return True
+    else:
+        print("Authentication failed")
+        return False
+
 def test_get_from_previous_post_tests():
     # Test GET for device from previous POST tests
-    print("\n4. Testing GET /status/sensor-abc-123 (from previous POST tests)")
+    print("\n5. Testing GET /status/sensor-abc-123 (from previous POST tests)")
     
-    response = requests.get(f'{BASE_URL}/status/sensor-abc-123')
+    headers = {'X-API-Key': API_KEY}
+    response = requests.get(f'{BASE_URL}/status/sensor-abc-123', headers=headers)
     print(f"Status Code: {response.status_code}")
     print(f"Response: {response.json()}")
     
@@ -118,7 +137,7 @@ if __name__ == '__main__':
     
     # Run tests
     success_count = 0
-    total_tests = 4
+    total_tests = 5
     
     if add_test_device():
         success_count += 1
@@ -127,6 +146,9 @@ if __name__ == '__main__':
         success_count += 1
         
     if test_get_nonexistent_device():
+        success_count += 1
+    
+    if test_get_no_api_key():
         success_count += 1
         
     if test_get_from_previous_post_tests():

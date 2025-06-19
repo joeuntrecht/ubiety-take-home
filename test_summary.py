@@ -5,6 +5,7 @@
 import requests
 
 BASE_URL = 'http://localhost:8000'
+API_KEY = 'dev-key-123'  # Default API key
 
 def test_health():
     # Test that the server is running
@@ -45,9 +46,10 @@ def add_multiple_test_devices():
         }
     ]
     
+    headers = {'X-API-Key': API_KEY}
     success_count = 0
     for device in test_devices:
-        response = requests.post(f'{BASE_URL}/status', json=device)
+        response = requests.post(f'{BASE_URL}/status', json=device, headers=headers)
         if response.status_code == 200:
             success_count += 1
             print(f"Added device: {device['device_id']}")
@@ -61,7 +63,8 @@ def test_summary_endpoint():
     # Test GET /status/summary endpoint
     print("\n2. Testing GET /status/summary")
     
-    response = requests.get(f'{BASE_URL}/status/summary')
+    headers = {'X-API-Key': API_KEY}
+    response = requests.get(f'{BASE_URL}/status/summary', headers=headers)
     print(f"Status Code: {response.status_code}")
     
     if response.status_code != 200:
@@ -113,11 +116,27 @@ def test_summary_endpoint():
     print("Summary endpoint working correctly")
     return True
 
-def test_summary_with_no_devices():
-    # Test summary when no devices exist (requires clean database)
-    print("\n3. Testing summary structure (even with existing devices)")
+def test_summary_no_api_key():
+    # Test GET /status/summary without API key
+    print("\n3. Testing GET /status/summary without API key")
     
     response = requests.get(f'{BASE_URL}/status/summary')
+    print(f"Status Code: {response.status_code}")
+    print(f"Response: {response.json()}")
+    
+    if response.status_code == 401:
+        print("Authentication working correctly")
+        return True
+    else:
+        print("Authentication failed")
+        return False
+
+def test_summary_with_no_devices():
+    # Test summary when no devices exist (requires clean database)
+    print("\n4. Testing summary structure (even with existing devices)")
+    
+    headers = {'X-API-Key': API_KEY}
+    response = requests.get(f'{BASE_URL}/status/summary', headers=headers)
     
     if response.status_code == 200:
         data = response.json()
@@ -133,9 +152,10 @@ def test_summary_with_no_devices():
 
 def test_summary_ordering():
     # Test that devices are returned in order by device_id
-    print("\n4. Testing device ordering in summary")
+    print("\n5. Testing device ordering in summary")
     
-    response = requests.get(f'{BASE_URL}/status/summary')
+    headers = {'X-API-Key': API_KEY}
+    response = requests.get(f'{BASE_URL}/status/summary', headers=headers)
     
     if response.status_code == 200:
         data = response.json()
@@ -169,12 +189,15 @@ if __name__ == '__main__':
     
     # Run tests
     success_count = 0
-    total_tests = 4
+    total_tests = 5
     
     if add_multiple_test_devices():
         success_count += 1
     
     if test_summary_endpoint():
+        success_count += 1
+    
+    if test_summary_no_api_key():
         success_count += 1
         
     if test_summary_with_no_devices():
