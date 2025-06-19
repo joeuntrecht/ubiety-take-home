@@ -1,11 +1,28 @@
 import sqlite3
+import os
 from datetime import datetime
+from functools import wraps
 from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 
 # Database setup
 DATABASE = 'device_status.db'
+
+# API Key configuration
+VALID_API_KEYS = os.getenv('API_KEYS', 'dev-key-123,test-key-456').split(',')
+
+def require_api_key(f):
+    # Decorator to require API key authentication
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        api_key = request.headers.get('X-API-Key')
+        if not api_key:
+            return jsonify({'error': 'Missing API key header (X-API-Key)'}), 401
+        if api_key not in VALID_API_KEYS:
+            return jsonify({'error': 'Invalid API key'}), 401
+        return f(*args, **kwargs)
+    return decorated
 
 def init_db():
     # Init the database with device_status table
@@ -76,38 +93,17 @@ def format_summary_device(row):
         'last_update': row['timestamp']
     }
 
-
 @app.route('/status', methods=['POST'])
+@require_api_key
 def submit_status():
     # Accept device status update
     try:
         data = request.get_json()
         
-        # Check if we got JSON data
-        if data is None:
-            return jsonify({'error': 'No JSON data provided'}), 400
-        
-        # Basic validation - check required fields
-        required_fields = ['device_id', 'timestamp', 'battery_level', 'rssi', 'online']
-        for field in required_fields:
-            if field not in data:
-                return jsonify({'error': f'Missing required field: {field}'}), 400
-        
-        # Validate data types and ranges
-        if not isinstance(data['battery_level'], int) or not (0 <= data['battery_level'] <= 100):
-            return jsonify({'error': 'battery_level must be an integer between 0 and 100'}), 400
-        
-        if not isinstance(data['rssi'], int):
-            return jsonify({'error': 'rssi must be an integer'}), 400
-        
-        if not isinstance(data['online'], bool):
-            return jsonify({'error': 'online must be a boolean'}), 400
-        
-        # Validate timestamp format (basic check)
-        try:
-            datetime.fromisoformat(data['timestamp'].replace('Z', '+00:00'))
-        except ValueError:
-            return jsonify({'error': 'timestamp must be in ISO 8601 format'}), 400
+        # Validate data using helper function
+        is_valid, error_message = validate_device_data(data)
+        if not is_valid:
+            return jsonify({'error': error_message}), 400
         
         # Store in database (upsert - insert or update if device_id exists)
         conn = sqlite3.connect(DATABASE)
@@ -135,6 +131,7 @@ def submit_status():
         return jsonify({'error': str(e)}), 500
     
 @app.route('/status/<device_id>', methods=['GET'])
+@require_api_key
 def get_device_status(device_id):
     # Get the last known status for a specific device
     try:
@@ -154,14 +151,8 @@ def get_device_status(device_id):
         if row is None:
             return jsonify({'error': 'Device not found'}), 404
         
-        # Convert row to dictionary
-        device_status = {
-            'device_id': row['device_id'],
-            'timestamp': row['timestamp'],
-            'battery_level': row['battery_level'],
-            'rssi': row['rssi'],
-            'online': bool(row['online'])
-        }
+        # Convert row to dictionary using helper function
+        device_status = format_device_response(row)
         
         return jsonify(device_status), 200
         
@@ -169,6 +160,7 @@ def get_device_status(device_id):
         return jsonify({'error': str(e)}), 500
     
 @app.route('/status/summary', methods=['GET'])
+@require_api_key
 def get_status_summary():
     # Get summary of all devices with their most recent status
     try:
@@ -185,15 +177,8 @@ def get_status_summary():
         rows = cursor.fetchall()
         conn.close()
         
-        # Build summary list
-        summary = []
-        for row in rows:
-            summary.append({
-                'device_id': row['device_id'],
-                'battery_level': row['battery_level'],
-                'online': bool(row['online']),
-                'last_update': row['timestamp']
-            })
+        # Build summary list using helper function
+        summary = [format_summary_device(row) for row in rows]
         
         return jsonify({'devices': summary}), 200
         
@@ -202,7 +187,7 @@ def get_status_summary():
 
 @app.route('/health', methods=['GET'])
 def health_check():
-    # Basic health check endpoint
+    # Basic health check endpoint - no authentication required
     return jsonify({'status': 'healthy', 'message': 'API is running'}), 200
 
 if __name__ == '__main__':
