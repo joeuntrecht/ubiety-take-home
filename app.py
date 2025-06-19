@@ -26,6 +26,57 @@ def init_db():
     conn.commit()
     conn.close()
 
+def validate_device_data(data):
+    # Validate device data - returns (is_valid, error_message)
+    if data is None:
+        return False, 'No JSON data provided'
+    
+    # Check required fields
+    required_fields = ['device_id', 'timestamp', 'battery_level', 'rssi', 'online']
+    for field in required_fields:
+        if field not in data:
+            return False, f'Missing required field: {field}'
+    
+    # Validate battery level
+    if not isinstance(data['battery_level'], int) or not (0 <= data['battery_level'] <= 100):
+        return False, 'battery_level must be an integer between 0 and 100'
+    
+    # Validate RSSI
+    if not isinstance(data['rssi'], int):
+        return False, 'rssi must be an integer'
+    
+    # Validate online status
+    if not isinstance(data['online'], bool):
+        return False, 'online must be a boolean'
+    
+    # Validate timestamp format
+    try:
+        datetime.fromisoformat(data['timestamp'].replace('Z', '+00:00'))
+    except ValueError:
+        return False, 'timestamp must be in ISO 8601 format'
+    
+    return True, None
+
+def format_device_response(row):
+    # Convert SQLite row to device response format
+    return {
+        'device_id': row['device_id'],
+        'timestamp': row['timestamp'],
+        'battery_level': row['battery_level'],
+        'rssi': row['rssi'],
+        'online': bool(row['online'])
+    }
+
+def format_summary_device(row):
+    # Convert SQLite row to summary device format
+    return {
+        'device_id': row['device_id'],
+        'battery_level': row['battery_level'],
+        'online': bool(row['online']),
+        'last_update': row['timestamp']
+    }
+
+
 @app.route('/status', methods=['POST'])
 def submit_status():
     # Accept device status update
