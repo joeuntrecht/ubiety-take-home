@@ -11,6 +11,7 @@ A Flask-based REST API for managing IoT device status data including battery lev
 - **GET /status/{device_id}** - Retrieve specific device status
 - **GET /status/summary** - Get summary of all devices
 - **GET /health** - Health check endpoint
+- **API key authentication** - Secure endpoints with configurable API keys
 - **Data validation** - Comprehensive input validation and error handling
 - **SQLite database** - Persistent data storage with upsert functionality
 
@@ -41,6 +42,7 @@ The API will be available at `http://localhost:8000`
 ```bash
 curl -X POST http://localhost:8000/status \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: dev-key-123" \
   -d '{
     "device_id": "sensor-001",
     "timestamp": "2025-06-19T14:00:00Z",
@@ -52,18 +54,59 @@ curl -X POST http://localhost:8000/status \
 
 **Get device status:**
 ```bash
-curl http://localhost:8000/status/sensor-001
+curl -H "X-API-Key: dev-key-123" http://localhost:8000/status/sensor-001
 ```
 
 **Get all devices summary:**
 ```bash
-curl http://localhost:8000/status/summary
+curl -H "X-API-Key: dev-key-123" http://localhost:8000/status/summary
 ```
+
+**Health check (no authentication required):**
+```bash
+curl http://localhost:8000/health
+```
+
+## Authentication
+
+All API endpoints except `/health` require authentication using an API key.
+
+### API Key Header
+Include the API key in the `X-API-Key` header:
+```
+X-API-Key: your-api-key-here
+```
+
+### Configuration
+API keys are configured via the `API_KEYS` environment variable:
+```bash
+# Single API key
+export API_KEYS="your-production-key"
+
+# Multiple API keys (comma-separated)
+export API_KEYS="key1,key2,key3"
+```
+
+**Default Keys** (for development):
+- `dev-key-123`
+- `test-key-456`
+
+### Authentication Responses
+- `401 Unauthorized` - Missing or invalid API key
+- `200 OK` - Valid API key, request processed
 
 ## API Documentation
 
 ### POST /status
 Submit device status update.
+
+**Authentication:** Required
+
+**Request Headers:**
+```
+Content-Type: application/json
+X-API-Key: your-api-key
+```
 
 **Request Body:**
 ```json
@@ -79,16 +122,32 @@ Submit device status update.
 **Response:**
 - `200 OK` - Status updated successfully
 - `400 Bad Request` - Invalid data or missing fields
+- `401 Unauthorized` - Missing or invalid API key
 
 ### GET /status/{device_id}
 Retrieve specific device status.
 
+**Authentication:** Required
+
+**Request Headers:**
+```
+X-API-Key: your-api-key
+```
+
 **Response:**
 - `200 OK` - Returns device data
 - `404 Not Found` - Device not found
+- `401 Unauthorized` - Missing or invalid API key
 
 ### GET /status/summary
 Get summary of all devices.
+
+**Authentication:** Required
+
+**Request Headers:**
+```
+X-API-Key: your-api-key
+```
 
 **Response:**
 ```json
@@ -104,8 +163,14 @@ Get summary of all devices.
 }
 ```
 
+**Response Codes:**
+- `200 OK` - Returns devices array
+- `401 Unauthorized` - Missing or invalid API key
+
 ### GET /health
 Health check endpoint.
+
+**Authentication:** Not required
 
 **Response:**
 ```json
@@ -147,11 +212,13 @@ pytest tests/test_integration.py -v
   - Test individual functions in isolation
   - Validate data validation logic
   - Test data formatting functions
+  - Test API key configuration
   - Fast execution, no external dependencies
 
 - **Integration Tests** (`tests/test_integration.py`)
   - Test complete HTTP request/response workflows
   - Test database integration
+  - Test authentication and authorization
   - Test error handling and edge cases
   - Require running Flask server
 
@@ -182,6 +249,7 @@ The workflow could be configured to run on pushes to `main` and `develop` branch
 2. **Environment Management**
    - Use separate databases for testing and production
    - Set environment variables for different stages
+   - Configure different API keys for each environment
    - Use containerization (Docker) for consistent environments
 
 3. **Deployment Strategy**
